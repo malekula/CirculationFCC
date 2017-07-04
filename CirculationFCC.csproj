@@ -109,7 +109,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Classes\BJACCRecord.cs" />
+    <Compile Include="Classes\BJFCCRecord.cs" />
     <Compile Include="Classes\BookVO.cs" />
     <Compile Include="Classes\DataGridViewDisableButtonCell.cs" />
     <Compile Include="Classes\DB.cs" />
