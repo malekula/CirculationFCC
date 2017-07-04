@@ -6,7 +6,7 @@ using System.Windows.Forms;
 
 namespace Circulation
 {
-    public enum BARTYPE { Book, Reader, NotExist }
+    public enum BARTYPE { BookFCC, Reader, NotExist, BookBJVVV }
     public class Department : DB
     {
         public int ExpectedBar = 0; //0 - ожидается штрихкод книги, 1 - ожидается штрихкод читателя, 2 - ожидается подтверждение или отмена выдачи

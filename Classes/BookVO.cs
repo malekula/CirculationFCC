@@ -5,6 +5,8 @@ using System.Text;
 
 namespace Circulation
 {
+    public enum Bases { BJFCC = 1, BJVVV };
+
     public class BookVO
     {
         public string BAR;
@@ -14,6 +16,7 @@ namespace Circulation
         public string TITLE;
         public string AUTHOR;
         public int IDISSUED;
+        public Bases FUND;
         public BookVO() { }
         public BookVO(int IDMAIN)
         {
@@ -27,11 +30,11 @@ namespace Circulation
             this.BookRecord = dbb.GetBookByBAR(BAR);
             this.BAR = BAR;
             this.IDMAIN = BookRecord[0].IDMAIN;
-            IEnumerable<BJFCCRecord> iddata = from BJFCCRecord x in BookRecord
+            IEnumerable<BJRecord> iddata = from BJRecord x in BookRecord
                                               where x.SORT == this.BAR && x.MNFIELD == 899 && x.MSFIELD == "$w"
                                               select x;
             this.IDDATA = iddata.ToList()[0].IDDATA;
-            var title = from BJFCCRecord x in BookRecord
+            var title = from BJRecord x in BookRecord
                         where x.MNFIELD == 200 && x.MSFIELD == "$a"
                         select x;
             this.TITLE = title.ToList()[0].PLAIN;
@@ -44,7 +47,7 @@ namespace Circulation
                 this.TITLE = title.ToList()[0].PLAIN;
             }
 
-            var author = from BJFCCRecord x in BookRecord
+            var author = from BJRecord x in BookRecord
                          where x.MNFIELD == 700 && x.MSFIELD == "$a"
                          select x;
             if (author.Count() == 0)
@@ -60,14 +63,14 @@ namespace Circulation
             
         }
 
-        public List<BJFCCRecord> BookRecord;
+        public List<BJRecord> BookRecord;
 
 
 
         internal bool IsIssued()
         {
             DBBook dbb = new DBBook();
-            IEnumerable<BJFCCRecord> iddata = from BJFCCRecord x in BookRecord
+            IEnumerable<BJRecord> iddata = from BJRecord x in BookRecord
                          where x.SORT == this.BAR && x.MNFIELD == 899 && x.MSFIELD == "$w"
                          select x;
 

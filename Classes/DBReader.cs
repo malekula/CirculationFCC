@@ -51,7 +51,7 @@ namespace Circulation
 
         internal bool IsAlreadyIssuedMoreThanFourBooks(ReaderVO r)
         {
-            DA.SelectCommand.CommandText = "select * from Reservation_R..ISSUED_FCC where IDREADER = " + r.ID + " and IDSTATUS = 1";
+            DA.SelectCommand.CommandText = "select * from Reservation_R..ISSUED_FCC where IDREADER = " + r.ID + " and IDSTATUS = (1,6)";
             DS = new DataSet();
             int i = DA.Fill(DS, "t");
             if (i >= 4) return true; else return false;
@@ -59,14 +59,16 @@ namespace Circulation
 
         internal DataTable GetFormular(int ID)
         {
-            DA.SelectCommand.CommandText = "select ROW_NUMBER() over(order by A.DATE_ISSUE) num, " +
-                                           " bar.SORT bar, " +
-                                           " avtp.PLAIN avt, " +
-                                           " titp.PLAIN tit, " +
+            DA.SelectCommand.CommandText = "with fcc as (select " +
+                                           " bar.SORT collate Cyrillic_general_ci_ai bar, " +
+                                           " avtp.PLAIN collate Cyrillic_general_ci_ai avt, " +
+                                           " titp.PLAIN collate Cyrillic_general_ci_ai tit, " +
                                            " cast(cast(A.DATE_ISSUE as varchar(11)) as datetime) iss, " +
-                                           " cast(cast(A.DATE_RETURN as varchar(11)) as datetime) ret , A.ID idiss, A.IDREADER idr,E.PLAIN shifr " +
+                                           " cast(cast(A.DATE_RETURN as varchar(11)) as datetime) ret , A.ID idiss, " +
+                                           " A.IDREADER idr,E.PLAIN collate Cyrillic_general_ci_ai shifr , 'ЦСК'  fund, A.DATE_ISSUE " +
                                            " ,Reservation_R.dbo.GetProlongedTimes(A.ID, 'BJFCC') prolonged" +
                                            "  from Reservation_R..ISSUED_FCC A " +
+                                           " left join Reservation_R..ISSUED_FCC_ACTIONS prolong on A.ID = prolong.IDISSUED_FCC and prolong.IDACTION = 3 " +
                                            " left join BJFCC..DATAEXT tit on A.IDMAIN = tit.IDMAIN and tit.MNFIELD = 200 and tit.MSFIELD = '$a' " +
                                            " left join BJFCC..DATAEXTPLAIN titp on tit.ID = titp.IDDATAEXT " +
                                            " left join BJFCC..DATAEXT avt on A.IDMAIN = avt.IDMAIN and avt.MNFIELD = 700 and avt.MSFIELD = '$a' " +
@@ -74,8 +76,31 @@ namespace Circulation
                                            " left join BJFCC..DATAEXT bar on A.IDDATA = bar.IDDATA and bar.MNFIELD = 899 and bar.MSFIELD = '$w' " +
                                            " left join BJFCC..DATAEXT EE on A.IDDATA = EE.IDDATA and EE.MNFIELD = 899 and EE.MSFIELD = '$j'" +
                                            " left join BJFCC..DATAEXTPLAIN E on E.IDDATAEXT = EE.ID" +
+                                           " where A.IDREADER = " + ID + " and A.IDSTATUS = 1)" +
 
-                                           " where A.IDREADER = " + ID + " and A.IDSTATUS = 1";
+                                           " , vvv as (" +
+                                           "select  " +
+                                           " bar.SORT collate Cyrillic_general_ci_ai bar, " +
+                                           " avtp.PLAIN collate Cyrillic_general_ci_ai avt, " +
+                                           " titp.PLAIN collate Cyrillic_general_ci_ai tit, " +
+                                           " cast(cast(A.DATE_ISSUE as varchar(11)) as datetime) iss, " +
+                                           " cast(cast(A.DATE_RETURN as varchar(11)) as datetime) ret , A.ID idiss, " +
+                                           " A.IDREADER idr,E.PLAIN collate Cyrillic_general_ci_ai shifr, 'ОФ'  fund, A.DATE_ISSUE " +
+                                           " ,Reservation_R.dbo.GetProlongedTimes(A.ID, 'BJFCC') prolonged" +
+                                           "  from Reservation_R..ISSUED_FCC A " +
+                                           " left join BJVVV..DATAEXT tit on A.IDMAIN = tit.IDMAIN and tit.MNFIELD = 200 and tit.MSFIELD = '$a' " +
+                                           " left join BJVVV..DATAEXTPLAIN titp on tit.ID = titp.IDDATAEXT " +
+                                           " left join BJVVV..DATAEXT avt on A.IDMAIN = avt.IDMAIN and avt.MNFIELD = 700 and avt.MSFIELD = '$a' " +
+                                           " left join BJVVV..DATAEXTPLAIN avtp on avt.ID = avtp.IDDATAEXT " +
+                                           " left join BJVVV..DATAEXT bar on A.IDDATA = bar.IDDATA and bar.MNFIELD = 899 and bar.MSFIELD = '$w' " +
+                                           " left join BJVVV..DATAEXT EE on A.IDDATA = EE.IDDATA and EE.MNFIELD = 899 and EE.MSFIELD = '$j'" +
+                                           " left join BJVVV..DATAEXTPLAIN E on E.IDDATAEXT = EE.ID" +
+                                           " where A.IDREADER = " + ID + " and A.IDSTATUS = 6)" +
+                                           " , result as (" +
+                                           " select * from fcc " +
+                                           " union all" +
+                                           " select * from vvv )" +
+                                           " select ROW_NUMBER() over(order by DATE_ISSUE) num, * from result";
             ;
             DS = new DataSet();
             int i = DA.Fill(DS, "formular");

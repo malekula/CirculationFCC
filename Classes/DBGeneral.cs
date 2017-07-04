@@ -29,9 +29,14 @@ namespace Circulation
             DA.SelectCommand.CommandText = "select top 1 IDMAIN from BJFCC..DATAEXT where MNFIELD = 899 and MSFIELD = '$w' and SORT = '" + data + "'";
             DS = new DataSet();
             int i = DA.Fill(DS, "t");
-            if (i > 0) return BARTYPE.Book;
+            if (i > 0) return BARTYPE.BookFCC;
 
-            DA.SelectCommand.CommandText = "select top 1 NumberReader from Readers..Main where BarCode = '" + data.Substring(1)+"'";
+            DA.SelectCommand.CommandText = "select top 1 IDMAIN from BJVVV..DATAEXT where MNFIELD = 899 and MSFIELD = '$w' and SORT = '" + data + "'";
+            DS = new DataSet();
+            i = DA.Fill(DS, "t");
+            if (i > 0) return BARTYPE.BookBJVVV;
+
+            DA.SelectCommand.CommandText = "select top 1 NumberReader from Readers..Main where BarCode = '" + data.Substring(1) + "'";
             DS = new DataSet();
             try
             {
@@ -43,8 +48,8 @@ namespace Circulation
             }
             if (i > 0) return BARTYPE.Reader;
             if (data.IndexOf(" ") == -1) return BARTYPE.NotExist;
-            DA.SelectCommand.CommandText = "select top 1 NumberReader from Readers..Main where NumberSC = '" + data.Substring(0,data.IndexOf(" "))+
-                                                                                       "' and SerialSC = '" + data.Substring(data.IndexOf(" ")+1)+"'";
+            DA.SelectCommand.CommandText = "select top 1 NumberReader from Readers..Main where NumberSC = '" + data.Substring(0, data.IndexOf(" ")) +
+                                                                                       "' and SerialSC = '" + data.Substring(data.IndexOf(" ") + 1) + "'";
             DS = new DataSet();
             i = DA.Fill(DS, "t");
             if (i > 0) return BARTYPE.Reader;
@@ -72,15 +77,17 @@ namespace Circulation
             DA.InsertCommand.Parameters.Add("DATE_ISSUE", SqlDbType.DateTime);
             DA.InsertCommand.Parameters.Add("DATE_RETURN", SqlDbType.DateTime);
             DA.InsertCommand.Parameters.Add("IDSTATUS", SqlDbType.Int);
+            DA.InsertCommand.Parameters.Add("BaseId", SqlDbType.Int);
 
             DA.InsertCommand.Parameters["IDMAIN"].Value = ScannedBook.IDMAIN;
             DA.InsertCommand.Parameters["IDDATA"].Value = ScannedBook.IDDATA;
             DA.InsertCommand.Parameters["IDREADER"].Value = ScannedReader.ID;
             DA.InsertCommand.Parameters["DATE_ISSUE"].Value = DateTime.Now;
             DA.InsertCommand.Parameters["DATE_RETURN"].Value = DateTime.Now.AddDays(21);
-            DA.InsertCommand.Parameters["IDSTATUS"].Value = 1;
-            DA.InsertCommand.CommandText = "insert into Reservation_R..ISSUED_FCC (IDMAIN,IDDATA,IDREADER,DATE_ISSUE,DATE_RETURN,IDSTATUS) values " +
-                                            " (@IDMAIN,@IDDATA,@IDREADER,@DATE_ISSUE,@DATE_RETURN,@IDSTATUS);select scope_identity();";
+            DA.InsertCommand.Parameters["IDSTATUS"].Value = (ScannedBook.FUND == Bases.BJFCC) ? 1 : 6;//1 - выдано из центра французских культур, 6 - выдано из основного фонда
+            DA.InsertCommand.Parameters["BaseId"].Value = (ScannedBook.FUND == Bases.BJFCC) ? 1 : 2;
+            DA.InsertCommand.CommandText = "insert into Reservation_R..ISSUED_FCC (IDMAIN,IDDATA,IDREADER,DATE_ISSUE,DATE_RETURN,IDSTATUS,BaseId) values " +
+                                            " (@IDMAIN,@IDDATA,@IDREADER,@DATE_ISSUE,@DATE_RETURN,@IDSTATUS,@BaseId);select scope_identity();";
             DA.InsertCommand.Connection.Open();
             object scope_id = DA.InsertCommand.ExecuteScalar();
 
@@ -90,7 +97,7 @@ namespace Circulation
             DA.InsertCommand.Parameters.Add("IDISSUED_FCC", SqlDbType.Int);
             DA.InsertCommand.Parameters.Add("DATEACTION", SqlDbType.DateTime);
 
-            DA.InsertCommand.Parameters["IDACTION"].Value = 1;
+            DA.InsertCommand.Parameters["IDACTION"].Value = (ScannedBook.FUND == Bases.BJFCC) ? 1 : 6;//1 - выдано из центра французских культур, 6 - выдано из основного фонда
             DA.InsertCommand.Parameters["IDUSER"].Value = IDEMP;
             DA.InsertCommand.Parameters["IDISSUED_FCC"].Value = scope_id;
             DA.InsertCommand.Parameters["DATEACTION"].Value = DateTime.Now;
@@ -156,23 +163,46 @@ namespace Circulation
 
         internal DataTable GetLog()
         {
-            DA.SelectCommand.CommandText = "select convert(VARCHAR(8),B.DATEACTION,108) [time],  "+
-                                           " bar.SORT bar, "+
-                                           " case when avtp.PLAIN IS null then '' else avtp.PLAIN + '; ' end + "+
-                                           " case when titp.PLAIN IS null then '' else titp.PLAIN end tit, "+
-                                           " A.IDREADER idr, "+
-                                           " C.STATUSNAME st "+
-                                           " from Reservation_R..ISSUED_FCC_ACTIONS B "+
-                                           " left join Reservation_R..ISSUED_FCC A on A.ID = B.IDISSUED_FCC "+
-                                           " left join Reservation_R..STATUS_ISSUED_FCC C on B.IDACTION = C.ID "+
-                                           " left join BJFCC..DATAEXT tit on A.IDMAIN = tit.IDMAIN and tit.MNFIELD = 200 and tit.MSFIELD = '$a' "+
-                                           " left join BJFCC..DATAEXTPLAIN titp on tit.ID = titp.IDDATAEXT "+
-                                           " left join BJFCC..DATAEXT avt on A.IDMAIN = avt.IDMAIN and avt.MNFIELD = 700 and avt.MSFIELD = '$a' "+
-                                           " left join BJFCC..DATAEXTPLAIN avtp on avt.ID = avtp.IDDATAEXT "+
-                                           " left join BJFCC..DATAEXT bar on A.IDDATA = bar.IDDATA and bar.MNFIELD = 899 and bar.MSFIELD = '$w' "+
-                                           " where cast(cast(B.DATEACTION as varchar(11)) as datetime)  "+
-                                           " = cast(cast(GETDATE() as varchar(11)) as datetime) " +
-                                           " order by time desc";
+            DA.SelectCommand.CommandText = "with fcc as ( " +
+                            "select convert(VARCHAR(8),B.DATEACTION,108) [time],   " +
+                            " bar.SORT collate Cyrillic_general_ci_ai bar,  " +
+                            " case when avtp.PLAIN IS null then '' else avtp.PLAIN + '; ' end + " +
+                            " case when titp.PLAIN IS null then '' else titp.PLAIN end collate Cyrillic_general_ci_ai tit,  " +
+                            " A.IDREADER idr,  " +
+                            " C.STATUSNAME st, 'ЦСК' fund  " +
+                            "from Reservation_R..ISSUED_FCC_ACTIONS B  " +
+                            " left join Reservation_R..ISSUED_FCC A on A.ID = B.IDISSUED_FCC  " +
+                            " left join Reservation_R..STATUS_ISSUED_FCC C on B.IDACTION = C.ID  " +
+                            " left join BJFCC..DATAEXT tit on A.IDMAIN = tit.IDMAIN and tit.MNFIELD = 200 and tit.MSFIELD = '$a' and A.BaseId = 1 " +
+                            " left join BJFCC..DATAEXTPLAIN titp on tit.ID = titp.IDDATAEXT  " +
+                            " left join BJFCC..DATAEXT avt on A.IDMAIN = avt.IDMAIN and avt.MNFIELD = 700 and avt.MSFIELD = '$a' and A.BaseId = 1 " +
+                            " left join BJFCC..DATAEXTPLAIN avtp on avt.ID = avtp.IDDATAEXT  " +
+                            " left join BJFCC..DATAEXT bar on A.IDDATA = bar.IDDATA and bar.MNFIELD = 899 and bar.MSFIELD = '$w'  and A.BaseId = 1 " +
+                            " where cast(cast(B.DATEACTION as varchar(11)) as datetime)  " +
+                            " = cast(cast(GETDATE() as varchar(11)) as datetime) and A.BaseId = 1 " +
+                            " ), " +
+                            " vvv as ( " +
+                            "select convert(VARCHAR(8),B.DATEACTION,108) [time],   " +
+                            "bar.SORT bar,  " +
+                            " case when avtp.PLAIN IS null then '' else avtp.PLAIN + '; ' end + " +
+                            " case when titp.PLAIN IS null then '' else titp.PLAIN end tit,  " +
+                            " A.IDREADER idr,  " +
+                            " C.STATUSNAME st, 'ОФ' fund  " +
+                            "from Reservation_R..ISSUED_FCC_ACTIONS B  " +
+                            " left join Reservation_R..ISSUED_FCC A on A.ID = B.IDISSUED_FCC  " +
+                            " left join Reservation_R..STATUS_ISSUED_FCC C on B.IDACTION = C.ID  " +
+                            " left join BJVVV..DATAEXT tit on A.IDMAIN = tit.IDMAIN and tit.MNFIELD = 200 and tit.MSFIELD = '$a' and A.BaseId = 2 " +
+                            " left join BJVVV..DATAEXTPLAIN titp on tit.ID = titp.IDDATAEXT  " +
+                            " left join BJVVV..DATAEXT avt on A.IDMAIN = avt.IDMAIN and avt.MNFIELD = 700 and avt.MSFIELD = '$a' and A.BaseId = 2 " +
+                            " left join BJVVV..DATAEXTPLAIN avtp on avt.ID = avtp.IDDATAEXT  " +
+                            " left join BJVVV..DATAEXT bar on A.IDDATA = bar.IDDATA and bar.MNFIELD = 899 and bar.MSFIELD = '$w'  and A.BaseId = 2 " +
+                            " where cast(cast(B.DATEACTION as varchar(11)) as datetime)  " +
+                            " = cast(cast(GETDATE() as varchar(11)) as datetime) and A.BaseId = 2 " +
+                            " ) " +
+                            " select * from fcc " +
+                            " union all " +
+                            " select * from vvv " +
+                            " order by time desc";
             DS = new DataSet();
             int i = DA.Fill(DS, "log");
             return DS.Tables["log"];
@@ -240,7 +270,7 @@ namespace Circulation
                                            " where A.MNFIELD = 899 and A.MSFIELD = '$w' and B.SORT = 'Disponible' ";
             //DS = new DataSet();
             i = DA.Fill(DS, "rep4");
-            DS.Tables["result"].Rows.Add(new string[] { "4", "Количество всех книг в фонде", DS.Tables["rep4"].Rows[0][0].ToString() });
+            DS.Tables["result"].Rows.Add(new string[] { "4", "Количество всех книг в фонде (в базе франкотеки)", DS.Tables["rep4"].Rows[0][0].ToString() });
 
 
 
