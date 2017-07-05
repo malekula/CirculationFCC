@@ -169,7 +169,7 @@ namespace Circulation
                             " case when avtp.PLAIN IS null then '' else avtp.PLAIN + '; ' end + " +
                             " case when titp.PLAIN IS null then '' else titp.PLAIN end collate Cyrillic_general_ci_ai tit,  " +
                             " A.IDREADER idr,  " +
-                            " C.STATUSNAME st, 'ЦСК' fund  " +
+                            " C.STATUSNAME st, 'ЦФК' fund  " +
                             "from Reservation_R..ISSUED_FCC_ACTIONS B  " +
                             " left join Reservation_R..ISSUED_FCC A on A.ID = B.IDISSUED_FCC  " +
                             " left join Reservation_R..STATUS_ISSUED_FCC C on B.IDACTION = C.ID  " +

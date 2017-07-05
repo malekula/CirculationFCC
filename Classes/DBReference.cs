@@ -127,7 +127,7 @@ namespace Circulation
                 " left join BJFCC..DATAEXTPLAIN D on D.IDDATAEXT = DD.ID" +
                 " left join BJFCC..DATAEXT INV on A.ID = INV.IDMAIN and INV.MNFIELD = 899 and INV.MSFIELD = '$w'" +
                 " left join BJFCC..DATAEXT klass on INV.IDDATA = klass.IDDATA and klass.MNFIELD = 921 and klass.MSFIELD = '$c' " +
-                " where INV.SORT is not null and klass.SORT='Длявыдачи'" +
+                " where INV.SORT is not null "+//and klass.SORT='Длявыдачи'" +
                 " union all " +
                 "select 1 ID,C.PLAIN  collate cyrillic_general_ci_ai tit,D.PLAIN  collate cyrillic_general_ci_ai avt," +
                 " INV.SORT  collate cyrillic_general_ci_ai inv, 'Основной фонд' fund " +
@@ -229,13 +229,17 @@ namespace Circulation
 
         internal object GetViolators()
         {
-            DA.SelectCommand.CommandText = "select distinct 1,A.IDREADER,B.FamilyName,B.[Name],B.FatherName," +
+            DA.SelectCommand.CommandText = "with vio as (select distinct 1 nn,A.IDREADER,B.FamilyName,B.[Name],B.FatherName," +
                 " (case when (B.Email is null or B.Email = '') then 'false' else 'true' end) isemail," +
                 " case when EM.DATEACTION is null then 'email не отправлялся' else CONVERT (NVARCHAR, EM.DATEACTION, 104) end emailsent " +
                 " from Reservation_R..ISSUED_FCC A" +
                 " left join Readers..Main B on A.IDREADER = B.NumberReader" +
                 " left join Reservation_R..ISSUED_FCC_ACTIONS EM on EM.IDISSUED_FCC = A.IDREADER and EM.IDACTION = 4" + // 4 - это ACTIONTYPE = сотрудник отослал емаил
-                " where A.IDSTATUS = 1 and A.DATE_RETURN < getdate()";
+                " where A.IDSTATUS = 1 and A.DATE_RETURN < getdate() and "+
+                " (EM.DATEACTION = (select max(DATEACTION) from Reservation_R..ISSUED_FCC_ACTIONS where IDISSUED_FCC = A.IDREADER and IDACTION = 4) " +
+                " or EM.DATEACTION is null) )" +
+                " select * from vio";
+                //" select * from vio where emailsent = (select max)";
             DS = new DataSet();
             DA.Fill(DS, "t");
             return DS.Tables["t"];

@@ -20,7 +20,7 @@ namespace Circulation
 
         private void button1_Click(object sender, EventArgs e)
         {
-            if (textBox1.Text == "adminn")
+            if (textBox1.Text == "aa")
             {
                 f1.pass = textBox1.Text;
                 Close();

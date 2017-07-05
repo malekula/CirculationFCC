@@ -18,16 +18,22 @@ namespace Circulation
         public int IDISSUED;
         public Bases FUND;
         public BookVO() { }
-        public BookVO(int IDMAIN)
+        public BookVO(int IDMAIN, Bases fund)
         {
             DBBook dbb = new DBBook();
-            this.BookRecord = dbb.GetBookByIDMAIN(IDMAIN);
+
+            this.BookRecord = dbb.GetBookByIDMAIN(IDMAIN, fund);
             this.IDMAIN = BookRecord[0].IDMAIN;
         }
+
         public BookVO(string BAR)
         {
             DBBook dbb = new DBBook();
             this.BookRecord = dbb.GetBookByBAR(BAR);
+            if (BookRecord[0].Fund == Bases.BJFCC)
+                this.FUND = Bases.BJFCC;
+            else
+                this.FUND = Bases.BJVVV;
             this.BAR = BAR;
             this.IDMAIN = BookRecord[0].IDMAIN;
             IEnumerable<BJRecord> iddata = from BJRecord x in BookRecord
@@ -58,7 +64,7 @@ namespace Circulation
             {
                 this.AUTHOR = author.ToList()[0].PLAIN;
             }
-            this.IDISSUED = dbb.GetIDISSUED(this.IDDATA);
+            this.IDISSUED = dbb.GetIDISSUED(this.IDDATA, this.FUND);
 
             
         }
@@ -74,7 +80,7 @@ namespace Circulation
                          where x.SORT == this.BAR && x.MNFIELD == 899 && x.MSFIELD == "$w"
                          select x;
 
-            return dbb.IsIssued(iddata.ToList()[0].IDDATA);
+            return dbb.IsIssued(iddata.ToList()[0].IDDATA, this.FUND);
         }
     }
 

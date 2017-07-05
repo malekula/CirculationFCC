@@ -51,7 +51,7 @@ namespace Circulation
 
         internal bool IsAlreadyIssuedMoreThanFourBooks(ReaderVO r)
         {
-            DA.SelectCommand.CommandText = "select * from Reservation_R..ISSUED_FCC where IDREADER = " + r.ID + " and IDSTATUS = (1,6)";
+            DA.SelectCommand.CommandText = "select * from Reservation_R..ISSUED_FCC where IDREADER = " + r.ID + " and IDSTATUS in (1,6)";
             DS = new DataSet();
             int i = DA.Fill(DS, "t");
             if (i >= 4) return true; else return false;
@@ -65,7 +65,7 @@ namespace Circulation
                                            " titp.PLAIN collate Cyrillic_general_ci_ai tit, " +
                                            " cast(cast(A.DATE_ISSUE as varchar(11)) as datetime) iss, " +
                                            " cast(cast(A.DATE_RETURN as varchar(11)) as datetime) ret , A.ID idiss, " +
-                                           " A.IDREADER idr,E.PLAIN collate Cyrillic_general_ci_ai shifr , 'ЦСК'  fund, A.DATE_ISSUE " +
+                                           " A.IDREADER idr,E.PLAIN collate Cyrillic_general_ci_ai shifr , 'ЦФК'  fund, A.DATE_ISSUE " +
                                            " ,Reservation_R.dbo.GetProlongedTimes(A.ID, 'BJFCC') prolonged" +
                                            "  from Reservation_R..ISSUED_FCC A " +
                                            " left join Reservation_R..ISSUED_FCC_ACTIONS prolong on A.ID = prolong.IDISSUED_FCC and prolong.IDACTION = 3 " +
