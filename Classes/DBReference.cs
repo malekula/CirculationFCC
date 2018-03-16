@@ -118,28 +118,130 @@ namespace Circulation
         internal object GetAllBooks()
         {
             DA.SelectCommand.CommandText =
-                                "select 1 ID, C.PLAIN collate cyrillic_general_ci_ai tit,D.PLAIN  collate cyrillic_general_ci_ai avt," +
-                " INV.SORT  collate cyrillic_general_ci_ai inv, 'Французский культурный центр' fund" +
-                " from BJFCC..MAIN A" +
-                " left join BJFCC..DATAEXT CC on A.ID = CC.IDMAIN and CC.MNFIELD = 200 and CC.MSFIELD = '$a'" +
-                " left join BJFCC..DATAEXT DD on A.ID = DD.IDMAIN and DD.MNFIELD = 700 and DD.MSFIELD = '$a'" +
-                " left join BJFCC..DATAEXTPLAIN C on C.IDDATAEXT = CC.ID" +
-                " left join BJFCC..DATAEXTPLAIN D on D.IDDATAEXT = DD.ID" +
-                " left join BJFCC..DATAEXT INV on A.ID = INV.IDMAIN and INV.MNFIELD = 899 and INV.MSFIELD = '$w'" +
-                " left join BJFCC..DATAEXT klass on INV.IDDATA = klass.IDDATA and klass.MNFIELD = 921 and klass.MSFIELD = '$c' " +
-                " where INV.SORT is not null "+//and klass.SORT='Длявыдачи'" +
-                " union all " +
-                "select 1 ID,C.PLAIN  collate cyrillic_general_ci_ai tit,D.PLAIN  collate cyrillic_general_ci_ai avt," +
-                " INV.SORT  collate cyrillic_general_ci_ai inv, 'Основной фонд' fund " +
-                " from BJVVV..MAIN A" +
-                " left join BJVVV..DATAEXT CC on A.ID = CC.IDMAIN and CC.MNFIELD = 200 and CC.MSFIELD = '$a'" +
-                " left join BJVVV..DATAEXT DD on A.ID = DD.IDMAIN and DD.MNFIELD = 700 and DD.MSFIELD = '$a'" +
-                " left join BJVVV..DATAEXTPLAIN C on C.IDDATAEXT = CC.ID" +
-                " left join BJVVV..DATAEXTPLAIN D on D.IDDATAEXT = DD.ID" +
-                " left join BJVVV..DATAEXT INV on A.ID = INV.IDMAIN and INV.MNFIELD = 899 and INV.MSFIELD = '$w'" +
-                " left join BJVVV..DATAEXT klass on INV.IDDATA = klass.IDDATA and klass.MNFIELD = 921 and klass.MSFIELD = '$c' " +
-                " left join BJVVV..DATAEXT FF on INV.IDDATA = FF.IDDATA and FF.MNFIELD = 899 and FF.MSFIELD = '$a'" +
-                " where INV.SORT is not null  and FF.IDINLIST = 60 ";//and klass.SORT='Длявыдачи'";
+                " with S0 as " +
+                " ( " +
+               " select 1 ID,C.PLAIN  collate cyrillic_general_ci_ai tit,D.PLAIN  collate cyrillic_general_ci_ai avt, " +
+               " INV.SORT  collate cyrillic_general_ci_ai inv, 'Основной фонд' fund , A.ID IDMAIN  " +
+               " ,cipherP.PLAIN  collate cyrillic_general_ci_ai cipher, " +
+               " case when iss.IDSTATUS in (1,6) then 'занято' else 'свободно' end sts " +
+               " ,TEMAP.PLAIN tema " +
+               "  from BJVVV..MAIN A " +
+               "  left join BJVVV..DATAEXT CC on A.ID = CC.IDMAIN and CC.MNFIELD = 200 and CC.MSFIELD = '$a' " +
+               "  left join BJVVV..DATAEXT DD on A.ID = DD.IDMAIN and DD.MNFIELD = 700 and DD.MSFIELD = '$a' " +
+               "  left join BJVVV..DATAEXTPLAIN C on C.IDDATAEXT = CC.ID " +
+               "  left join BJVVV..DATAEXTPLAIN D on D.IDDATAEXT = DD.ID " +
+               "  left join BJVVV..DATAEXT INV on A.ID = INV.IDMAIN and INV.MNFIELD = 899 and INV.MSFIELD = '$p' " +
+               "  left join BJVVV..DATAEXT klass on INV.IDDATA = klass.IDDATA and klass.MNFIELD = 921 and klass.MSFIELD = '$c'  " +
+               "  left join BJVVV..DATAEXT FF on INV.IDDATA = FF.IDDATA and FF.MNFIELD = 899 and FF.MSFIELD = '$a' " +
+               "  left join BJVVV..DATAEXT cipher on cipher.ID = (select top 1 ID from BJVVV..DATAEXT  " +
+               "             where MNFIELD = 899 and MSFIELD = '$j' and IDDATA = INV.IDDATA)  " +
+               "  left join BJVVV..DATAEXTPLAIN cipherP on cipherP.IDDATAEXT = cipher.ID " +
+               "  left join Reservation_R..ISSUED_FCC iss on iss.ID = (select top 1 ID from Reservation_R..ISSUED_FCC iss   " +
+               "              where IDDATA = INV.IDDATA order by ID desc)  " +
+               "  left join BJVVV..DATAEXT TEMA on TEMA.ID = (select top 1 ID from BJVVV..DATAEXT  " +
+               "             where MNFIELD = 922 and MSFIELD = '$e' and IDMAIN = INV.IDMAIN )  " +
+               "  left join BJVVV..DATAEXTPLAIN TEMAP on TEMAP.IDDATAEXT = TEMA.ID  " +
+               " where INV.SORT is not null  and FF.IDINLIST = 60  "+
+            "  ), " +
+            " prelang as(  " +
+            " select A.IDMAIN,B.PLAIN   " +
+            " from BJVVV..DATAEXT A  " +
+            " left join BJVVV..DATAEXTPLAIN B on A.ID = B.IDDATAEXT  " +
+            " where A.MNFIELD = 101 and A.MSFIELD = '$a' and A.IDMAIN in (select IDMAIN from S0)  " +
+            " ),  " +
+            " lang as  " +
+            " (  " +
+            " select  A1.IDMAIN,  " +
+            "         (select A2.PLAIN+ '; '   " +
+            "         from prelang A2   " +
+            "         where A1.IDMAIN = A2.IDMAIN   " +
+            "         for XML path('')  " +
+            "         ) lng  " +
+            " from prelang A1   " +
+            " group by A1.IDMAIN  " +
+            " ) , " +
+            " S1 as " +
+            " ( " +
+            " select 1 ID,C.PLAIN  collate cyrillic_general_ci_ai tit,D.PLAIN  collate cyrillic_general_ci_ai avt, " +
+            " INV.SORT  collate cyrillic_general_ci_ai inv, 'Французский культурный центр' fund , A.ID IDMAIN,  " +
+            " cipherP.PLAIN  collate cyrillic_general_ci_ai cipher, " +
+            " case when iss.IDSTATUS in (1,6) then 'занято' else 'свободно' end sts, " +
+            " TEMAP.PLAIN tema " +
+            "  from BJFCC..MAIN A " +
+            "  left join BJFCC..DATAEXT CC on A.ID = CC.IDMAIN and CC.MNFIELD = 200 and CC.MSFIELD = '$a' " +
+            "  left join BJFCC..DATAEXT DD on A.ID = DD.IDMAIN and DD.MNFIELD = 700 and DD.MSFIELD = '$a' " +
+            "  left join BJFCC..DATAEXTPLAIN C on C.IDDATAEXT = CC.ID " +
+            "  left join BJFCC..DATAEXTPLAIN D on D.IDDATAEXT = DD.ID " +
+            "  left join BJFCC..DATAEXT INV on A.ID = INV.IDMAIN and INV.MNFIELD = 899 and INV.MSFIELD = '$w' " +
+            "  left join BJFCC..DATAEXT klass on INV.IDDATA = klass.IDDATA and klass.MNFIELD = 921 and klass.MSFIELD = '$c'  " +
+            "  left join BJFCC..DATAEXT FF on INV.IDDATA = FF.IDDATA and FF.MNFIELD = 899 and FF.MSFIELD = '$a' " +
+            "  left join BJFCC..DATAEXT cipher on cipher.ID = (select top 1 ID from BJFCC..DATAEXT  " +
+            "             where MNFIELD = 899 and MSFIELD = '$j' and IDDATA = INV.IDDATA)  " +
+            "  left join BJFCC..DATAEXTPLAIN cipherP on cipherP.IDDATAEXT = cipher.ID " +
+            "  left join Reservation_R..ISSUED_FCC iss on iss.ID = (select top 1 ID from Reservation_R..ISSUED_FCC iss   " +
+            "              where IDDATA = INV.IDDATA order by ID desc)  " +
+            "  left join BJFCC..DATAEXT TEMA on TEMA.ID = (select top 1 ID from BJFCC..DATAEXT  " +
+            "             where MNFIELD = 922 and MSFIELD = '$e' and IDMAIN = INV.IDMAIN )  " +
+            "  left join BJFCC..DATAEXTPLAIN TEMAP on TEMAP.IDDATAEXT = TEMA.ID  " +
+            " where INV.SORT is not null   " +
+            "  ), " +
+            " prelangF as(  " +
+            " select A.IDMAIN,B.PLAIN   " +
+            " from BJFCC..DATAEXT A  " +
+            " left join BJFCC..DATAEXTPLAIN B on A.ID = B.IDDATAEXT  " +
+            " where A.MNFIELD = 101 and A.MSFIELD = '$a' and A.IDMAIN in (select IDMAIN from S1) " +
+            " ),  " +
+            " langF as  " +
+            " (  " +
+            " select  A1.IDMAIN,  " +
+            "         (select A2.PLAIN+ '; '   " +
+            "         from prelangF A2   " +
+            "         where A1.IDMAIN = A2.IDMAIN   " +
+            "         for XML path('')  " +
+            "         ) lng  " +
+            " from prelangF A1   " +
+            " group by A1.IDMAIN  " +
+            " )  " +
+            " , final as " +
+            " ( " +
+            " select 1 ID, A.tit, A.avt, A.inv, A.fund, B.lng, A.cipher, A.sts, A.tema " +
+            " from S0 A " +
+            " left join lang B on A.IDMAIN = B.IDMAIN " +
+            " union all " +
+            " select 1 ID, A.tit, A.avt, A.inv, A.fund, B.lng, A.cipher, A.sts, A.tema " +
+            " from S1 A " +
+            " left join langF B on A.IDMAIN = B.IDMAIN " +
+            " ) "+
+            " select * from final";
+                   
+                    
+                   
+
+
+                //                "select 1 ID, C.PLAIN collate cyrillic_general_ci_ai tit,D.PLAIN  collate cyrillic_general_ci_ai avt," +
+                //" INV.SORT  collate cyrillic_general_ci_ai inv, 'Французский культурный центр' fund" +
+                
+                //" from BJFCC..MAIN A" +
+                //" left join BJFCC..DATAEXT CC on A.ID = CC.IDMAIN and CC.MNFIELD = 200 and CC.MSFIELD = '$a'" +
+                //" left join BJFCC..DATAEXT DD on A.ID = DD.IDMAIN and DD.MNFIELD = 700 and DD.MSFIELD = '$a'" +
+                //" left join BJFCC..DATAEXTPLAIN C on C.IDDATAEXT = CC.ID" +
+                //" left join BJFCC..DATAEXTPLAIN D on D.IDDATAEXT = DD.ID" +
+                //" left join BJFCC..DATAEXT INV on A.ID = INV.IDMAIN and INV.MNFIELD = 899 and INV.MSFIELD = '$w'" +
+                //" left join BJFCC..DATAEXT klass on INV.IDDATA = klass.IDDATA and klass.MNFIELD = 921 and klass.MSFIELD = '$c' " +
+                //" where INV.SORT is not null "+//and klass.SORT='Длявыдачи'" +
+                //" union all " +
+                //"select 1 ID,C.PLAIN  collate cyrillic_general_ci_ai tit,D.PLAIN  collate cyrillic_general_ci_ai avt," +
+                //" INV.SORT  collate cyrillic_general_ci_ai inv, 'Основной фонд' fund " +
+                //" from BJVVV..MAIN A" +
+                //" left join BJVVV..DATAEXT CC on A.ID = CC.IDMAIN and CC.MNFIELD = 200 and CC.MSFIELD = '$a'" +
+                //" left join BJVVV..DATAEXT DD on A.ID = DD.IDMAIN and DD.MNFIELD = 700 and DD.MSFIELD = '$a'" +
+                //" left join BJVVV..DATAEXTPLAIN C on C.IDDATAEXT = CC.ID" +
+                //" left join BJVVV..DATAEXTPLAIN D on D.IDDATAEXT = DD.ID" +
+                //" left join BJVVV..DATAEXT INV on A.ID = INV.IDMAIN and INV.MNFIELD = 899 and INV.MSFIELD = '$w'" +
+                //" left join BJVVV..DATAEXT klass on INV.IDDATA = klass.IDDATA and klass.MNFIELD = 921 and klass.MSFIELD = '$c' " +
+                //" left join BJVVV..DATAEXT FF on INV.IDDATA = FF.IDDATA and FF.MNFIELD = 899 and FF.MSFIELD = '$a'" +
+                //" where INV.SORT is not null  and FF.IDINLIST = 60 ";//and klass.SORT='Длявыдачи'";
+            
             //спросить какой класс издания для них считается нормальным
 
             DS = new DataSet();
